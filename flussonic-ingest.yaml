@@ -1,0 +1,128 @@
+#apiVersion: networking.k8s.io/v1
+#kind: Ingress
+#metadata:
+#  name: dev-ingress-traefik
+#  namespace: flussonic
+#spec:
+#  rules:
+#  - host: ingest.flussonic.k8s.ru
+#    http:
+#      paths:
+#      - path: /admin/
+#        pathType: Prefix
+#        backend:
+#          service:
+#            name: ingest-service
+#            port:
+#              number: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingest-service
+  namespace: flussonic
+  labels:
+    name: ingest-service
+spec:
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+    name: http-admin
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+    name: http-streaming
+  - protocol: TCP
+    port: 1935
+    targetPort: 1935
+    name: rtmp
+  - protocol: UDP
+    port: 9999
+    targetPort: 9999
+    name: srt
+  selector:
+    app: dev
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest
+  namespace: flussonic
+spec:
+  selector:
+    matchLabels:
+      app: dev
+  template:
+    metadata:
+      labels:
+        app: dev
+    spec:
+      hostname: ingest
+      subdomain: flussonic
+      containers:
+      - name: flussonic
+        image: flussonic/flussonic:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http-admin
+          containerPort: 8080
+        - name: http-streaming
+          containerPort: 80
+        - name: rtmp
+          containerPort: 1935
+        - name: srt
+          containerPort: 9999
+        env:
+        - name: LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: flussonic-secrets
+              key: license_key
+              optional: false
+        - name: FLUSSONIC_EDIT_AUTH
+          valueFrom:
+            secretKeyRef:
+              name: flussonic-secrets
+              key: edit_auth
+              optional: false
+        volumeMounts:
+        - name: config-templates
+          mountPath: /etc/flussonic/flussonic.conf.d
+        livenessProbe:
+          httpGet:
+            path: /streamer/api/v3/monitoring/liveness
+            port: 8080
+            httpHeaders:
+            - name: Authorization
+              value: $(FLUSSONIC_EDIT_AUTH)
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        startupProbe:
+          httpGet:
+            path: /flussonic/api/v3/monitoring/readiness
+            port: 8080
+            httpHeaders:
+            - name: Authorization
+              value: $(FLUSSONIC_EDIT_AUTH)
+          initialDelaySeconds: 6
+          periodSeconds: 6
+          failureThreshold: 50
+        readinessProbe:
+          httpGet:
+            path: /flussonic/api/v3/monitoring/readiness
+            port: 8080
+            httpHeaders:
+            - name: Authorization
+              value: $(FLUSSONIC_EDIT_AUTH)
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config-templates
+        configMap:
+          name: streamer-presets
+          items:
+          - key: listeners
+            path: listeners.conf
+          - key: config_external_ingest
+            path: config_external.conf

@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dvr-service
+  namespace: flussonic
+  labels:
+    name: dvr-service
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http-streaming
+  - port: 8080
+    targetPort: 8080
+    name: http-admin
+  selector:
+    app: dev
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dvr
+  namespace: flussonic
+spec:
+  serviceName: dvr-service
+  selector:
+    matchLabels:
+      app: dev
+  template:
+    metadata:
+      labels:
+        app: dev
+    spec:
+      hostname: dvr
+      subdomain: dvr-service
+      containers:
+      - name: flussonic
+        image: flussonic/flussonic:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http-streaming
+          containerPort: 80
+        - name: http-admin
+          containerPort: 8080
+        env:
+        - name: LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: flussonic-secrets
+              key: license_key
+              optional: false
+        - name: FLUSSONIC_EDIT_AUTH
+          valueFrom:
+            secretKeyRef:
+              name: flussonic-secrets
+              key: edit_auth
+              optional: false
+        volumeMounts:
+        - name: config-templates
+          mountPath: /etc/flussonic/flussonic.conf.d
+        livenessProbe:
+          httpGet:
+            path: /streamer/api/v3/monitoring/liveness
+            port: 8080
+            httpHeaders:
+            - name: Authorization
+              value: $(FLUSSONIC_EDIT_AUTH)
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        startupProbe:
+          httpGet:
+            path: /flussonic/api/v3/monitoring/readiness
+            port: 8080
+            httpHeaders:
+            - name: Authorization
+              value: $(FLUSSONIC_EDIT_AUTH)
+          initialDelaySeconds: 6
+          periodSeconds: 6
+          failureThreshold: 50
+        readinessProbe:
+          httpGet:
+            path: /flussonic/api/v3/monitoring/readiness
+            port: 8080
+            httpHeaders:
+            - name: Authorization
+              value: $(FLUSSONIC_EDIT_AUTH)
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config-templates
+        configMap:
+          name: streamer-presets
+          items:
+          - key: listeners
+            path: listeners.conf
+          - key: config_external_dvr
+            path: config_external.conf
+          - key: dvr
+            path: dvr.conf

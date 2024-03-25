@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: streamer-presets
+  namespace: flussonic
+data:
+  listeners: |
+    http 80 {api false;}
+    http 8080;
+    rtmp 1935;
+    srt 9999;
+  dvr: |
+    dvr archive {
+      root s3://minioadmin:minioadmin@minio-0.minio-service.flussonic.svc.cluster.local:9090/dvr;
+    }
+  config_external_ingest: |
+    config_external http://config-app.config-app-service.flussonic.svc.cluster.local:8086/ingest;
+  config_external_dvr: |
+    config_external http://config-app.config-app-service.flussonic.svc.cluster.local:8086/dvr;
