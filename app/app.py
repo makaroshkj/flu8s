@@ -19,7 +19,8 @@ def config_external_ingest():
       "streams":[
          {
             "protocols":{
-               "hls":"true"
+               "hls":"true",
+               "m4s":"true"
             },
             "pushes":[
                {
@@ -48,33 +49,98 @@ def config_external_ingest():
       response = json.loads('{"streams":[]}')
       return response, 200, {'Content-Type': 'application/json'}
 
-@app.route('/dvr/streams', methods=['GET'])
-def config_external_dvr():
+@app.route('/transcoder/streams', methods=['GET'])
+def config_external_transcoder():
    stream_name = request.args.get('name')
    server_hostname = request.args.get('client_host')
    if stream_name != None:
-      stream_config = json.dumps({
-      "streams":[
+      stream_config = json.dumps(
          {
-            "protocols":{
-               "hls":"true"
+   "streams":[
+      {
+         "protocols":{
+            "hls":"true",
+            "m4s":"true"
+         },
+         "name":stream_name,
+         "title":'k8s-' + stream_name,
+         "inputs":[
+            {
+               "url":"publish://"
+            }
+         ],
+         "static":"false",
+         "source_timeout":30,
+         "transcoder":{
+            "global":{
+               "hw":"cpu",
+               "gop":50
             },
-            "name": stream_name,
-            "title": 'k8s-' + stream_name,
-            "inputs":[
+            "audio":{
+               "codec":"aac",
+               "bitrate":128000,
+               "channels":2,
+               "split_channels":"false"
+            },
+            "video":[
                {
-                  "url":"publish://"
+                  "profile":"baseline",
+                  "size":{
+                     "strategy":"fit",
+                     "width":1920,
+                     "height":1080,
+                     "background":"#000000"
+                  },
+                  "codec":"h264",
+                  "bitrate":2000000,
+                  "track":1,
+                  "bframes":0,
+                  "open_gop":"false",
+                  "preset":"veryfast"
+               },
+               {
+                  "profile":"baseline",
+                  "size":{
+                     "strategy":"fit",
+                     "width":1024,
+                     "height":576,
+                     "background":"#000000"
+                  },
+                  "codec":"h264",
+                  "bitrate":1500000,
+                  "track":2,
+                  "bframes":0,
+                  "open_gop":"false",
+                  "preset":"veryfast"
+               },
+               {
+                  "profile":"baseline",
+                  "size":{
+                     "strategy":"fit",
+                     "width":640,
+                     "height":360,
+                     "background":"#000000"
+                  },
+                  "codec":"h264",
+                  "bitrate":500000,
+                  "track":3,
+                  "bframes":0,
+                  "open_gop":"false",
+                  "preset":"veryfast"
                }
             ],
-            "static":"false",
-            "source_timeout":30,
-            "dvr": {
-               "reference": "archive",
-               "expiration": 10800
-            }
-         }
-      ]
-   })
+            "decoder":{
+               
+            },
+            "tracks":[
+               
+            ]
+         },
+         "segment_count":6,
+         "segment_duration":2000
+      }
+   ]
+})
       return stream_config, 200, {'Content-Type': 'application/json'}
    else:
       response = json.loads('{"streams":[]}')

@@ -1,28 +1,26 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: dvr-service
+  name: transcoder-service
   namespace: flussonic
   labels:
-    name: dvr-service
+    name: transcoder-service
 spec:
   ports:
-  - port: 80
-    targetPort: 80
-    name: http-streaming
-  - port: 8080
-    targetPort: 8080
-    name: http-admin
+  - protocol: TCP
+    port: 8282
+    targetPort: http
+    name: http
   selector:
     app: dev
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: dvr
+  name: transcoder
   namespace: flussonic
 spec:
-  serviceName: dvr-service
+  serviceName: transcoder-service
   selector:
     matchLabels:
       app: dev
@@ -31,17 +29,16 @@ spec:
       labels:
         app: dev
     spec:
-      hostname: dvr
-      subdomain: dvr-service
+      hostname: transcoder
+      subdomain: transcoder-service
       containers:
       - name: flussonic
         image: flussonic/flussonic:latest
         imagePullPolicy: IfNotPresent
         ports:
-        - name: http-streaming
-          containerPort: 80
-        - name: http-admin
-          containerPort: 8080
+        - name: http
+          containerPort: 8282
+          hostPort: 8282
         env:
         - name: LICENSE_KEY
           valueFrom:
@@ -61,7 +58,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /streamer/api/v3/monitoring/liveness
-            port: 8080
+            port: 8282
             httpHeaders:
             - name: Authorization
               value: $(FLUSSONIC_EDIT_AUTH)
@@ -70,7 +67,7 @@ spec:
         startupProbe:
           httpGet:
             path: /flussonic/api/v3/monitoring/readiness
-            port: 8080
+            port: 8282
             httpHeaders:
             - name: Authorization
               value: $(FLUSSONIC_EDIT_AUTH)
@@ -80,7 +77,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /flussonic/api/v3/monitoring/readiness
-            port: 8080
+            port: 8282
             httpHeaders:
             - name: Authorization
               value: $(FLUSSONIC_EDIT_AUTH)
@@ -93,7 +90,5 @@ spec:
           items:
           - key: listeners
             path: listeners.conf
-          - key: config_external_dvr
+          - key: config_external_transcoder
             path: config_external.conf
-          - key: dvr
-            path: dvr.conf

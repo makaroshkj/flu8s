@@ -32,7 +32,7 @@ spec:
       subdomain: config-app-service
       containers:
       - name: config-app
-        image: makaroshkj/config-app:4.0
+        image: makaroshkj/config-app:8.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8086
@@ -47,5 +47,5 @@ spec:
           valueFrom:
             secretKeyRef:
               name: flussonic-secrets
-              key: dvr_push_url
+              key: transcoder_push_url
               optional: false
