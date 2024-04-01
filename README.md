@@ -20,7 +20,7 @@ direction LR
     telegram(telegram);
     rtmp_source-->|RTMP push|ingest;
     ingest-->|M4S push|transcoder;
-    transcoder-->|RTMP push|telegram;
+    ingest-->|RTMP push|telegram;
     transcoder-->|HLS play|play
 end
 ```
